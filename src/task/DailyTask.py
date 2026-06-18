@@ -131,6 +131,7 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
         self.sleep(1)
         self.claim_battle_pass()
         self.check_weekly_garden()
+        self.ensure_main(time_out=30)
         self.log_info('Task completed', notify=True)
 
     def check_weekly_garden(self):
@@ -140,9 +141,10 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
         self.log_info('check weekly garden')
         try:
             garden_task = self.get_task_by_class(GardenTask)
-            garden_task.open_garden_weekly_page()
+            garden_task.open_garden_weekly_tab()
             if garden_task.is_weekly_garden_completed():
                 self.log_info('weekly garden already completed')
+                garden_task.claim_weekly_garden_reward()
                 return
             self.log_info('weekly garden not completed, run GardenTask')
             self.run_task_by_class(GardenTask)

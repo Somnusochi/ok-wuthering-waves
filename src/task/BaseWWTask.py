@@ -694,8 +694,6 @@ class BaseWWTask(BaseTask):
             return True
         if self.wait_login():
             return False
-        if self.handle_monthly_card():
-            return False
         if esc:
             self.log_debug('main esc')
             self.back(after_sleep=2)
@@ -905,23 +903,31 @@ class BaseWWTask(BaseTask):
         # Function to check if a component forms a ring
 
     def find_monthly_card(self):
-        return self.find_one('monthly_card', threshold=0.65, horizontal_variance=0.05, vertical_variance=0.05)
+        return self.find_one('monthly_card', threshold=0.8, horizontal_variance=0.03, vertical_variance=0.03)
 
     def handle_monthly_card(self):
+        if not self.monthly_card_config.get('Check Monthly Card'):
+            return False
         monthly_card = self.find_monthly_card()
         # self.screenshot('monthly_card1')
         if monthly_card is not None:
             # self.screenshot('monthly_card1')
-            self.log_info('monthly_card found click')
+            self.log_info(f'monthly_card found click {monthly_card}')
             self.click_relative(0.50, 0.89)
             self.sleep(2)
             # self.screenshot('monthly_card2')
             self.click_relative(0.50, 0.89)
             self.sleep(2)
-            self.wait_until(self.in_team_and_world, time_out=10,
-                            post_action=lambda: self.click_relative(0.50, 0.89, after_sleep=1))
+            handled = self.wait_until(self.in_team_and_world, time_out=10,
+                                      raise_if_not_found=False,
+                                      post_action=lambda: self.click_relative(0.50, 0.89, after_sleep=1))
             # self.screenshot('monthly_card3')
-            self.set_check_monthly_card(next_day=True)
+            if handled:
+                self.set_check_monthly_card(next_day=True)
+                return True
+            self.log_info('monthly_card click did not return to main, treat as false positive')
+            self.back(after_sleep=2)
+            return False
         # logger.debug(f'check_monthly_card {monthly_card}')
         return monthly_card is not None
 

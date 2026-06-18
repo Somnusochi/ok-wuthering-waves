@@ -33,10 +33,12 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
     def run(self):
         WWOneTimeTask.run(self)
         self.ensure_main()
-        self.open_garden_weekly_page()
+        self.open_garden_weekly_tab()
         if self.is_weekly_garden_completed():
+            self.claim_weekly_garden_reward()
             self.log_info('乐园任务完成, 已达到上限', notify=True)
             return
+        self.click_garden_weekly_action()
         self.click(0.246, 0.486, after_sleep=1)
         while True:
             target = self.find_best_garden_feature()
@@ -70,20 +72,37 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
                     if self.is_garden_done(texts):
                         self.click(garden_back, after_sleep=1)
                         self.wait_book('gray_book_quest', time_out=30)
-                        self.click(0.927, 0.893, after_sleep=2)
-                        self.click(0.927, 0.893, after_sleep=1)
                         break
                     else:
                         self.click(garden_restart, after_sleep=1)
                 self.sleep(0.2)
+        self.claim_weekly_garden_reward()
         self.log_info('乐园任务完成, 已达到上限', notify=True)
 
-    def open_garden_weekly_page(self):
+    def open_garden_weekly_tab(self):
         self.openF2Book('gray_book_quest')
         self.sleep(1)
         self.click(0.343, 0.129, after_sleep=1)
+
+    def click_garden_weekly_action(self):
         self.click(0.927, 0.893, after_sleep=2)
         self.click(0.927, 0.893, after_sleep=1)
+
+    def open_garden_weekly_page(self):
+        self.open_garden_weekly_tab()
+        self.click_garden_weekly_action()
+
+    def claim_weekly_garden_reward(self):
+        self.info_set("current task", "claim weekly garden reward")
+        self.open_garden_weekly_tab()
+        if not self.is_weekly_garden_completed():
+            self.log_info('weekly garden reward is not ready')
+            self.ensure_main(time_out=30)
+            return False
+        self.log_info('claim weekly garden reward via coordinate')
+        self.click_garden_weekly_action()
+        self.ensure_main(time_out=30)
+        return True
 
     def is_weekly_garden_completed(self):
         current = self.ocr(0.102, 0.793, 0.284, 0.956, match=self.GARDEN_TARGET_POINTS)
