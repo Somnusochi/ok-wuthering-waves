@@ -1081,3 +1081,6 @@ msgstr ""
 
 msgid "None"
 msgstr "Ninguno"
+
+msgid "Guidebook Key"
+msgstr "Guía de Solaris"

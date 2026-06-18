@@ -1211,3 +1211,6 @@ msgstr ""
 
 msgid "None"
 msgstr "无"
+
+msgid "Guidebook Key"
+msgstr "索拉指南"

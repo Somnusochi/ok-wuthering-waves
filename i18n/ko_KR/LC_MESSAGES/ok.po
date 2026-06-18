@@ -1168,3 +1168,6 @@ msgstr ""
 
 msgid "None"
 msgstr "없음"
+
+msgid "Guidebook Key"
+msgstr "솔라리스 가이드"
