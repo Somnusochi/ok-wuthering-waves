@@ -54,6 +54,29 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
             logger.warning(f'controller trigger failed: {e}')
             return False
 
+    def single_member_team_hud_visible(self):
+        for checker in (
+                lambda: self.find_one('world_earth_icon', threshold=0.55),
+                lambda: self.find_one('edge_levitator', threshold=0.65),
+                self.has_target,
+                self.has_health_bar,
+        ):
+            try:
+                if checker():
+                    return True
+            except Exception as e:
+                logger.debug(f'single_member_team_hud_visible checker failed: {e}')
+        return False
+
+    def in_team(self):
+        in_team, current_index, count = super().in_team()
+        if in_team:
+            return in_team, current_index, count
+        if count == 1 and self.single_member_team_hud_visible():
+            self.logged_in = True
+            return True, 0, 1
+        return in_team, current_index, count
+
     def warm_up_char_features(self):
         if self.char_features_warmed_up:
             return

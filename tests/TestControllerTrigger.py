@@ -54,5 +54,32 @@ class TestControllerTrigger(unittest.TestCase):
         self.assertEqual([0.05], task.clicks)
         self.assertEqual([True, "end"], performed)
 
+    def test_auto_combat_treats_single_member_combat_hud_as_team(self):
+        class ProbeAutoCombatTask(AutoCombatTask):
+            @property
+            def logged_in(self):
+                return getattr(self, "_logged_in", False)
+
+            @logged_in.setter
+            def logged_in(self, value):
+                self._logged_in = value
+
+        task = ProbeAutoCombatTask.__new__(ProbeAutoCombatTask)
+        task.find_one = lambda name, **kwargs: None
+        task.has_target = lambda: False
+        task.has_health_bar = lambda: True
+
+        self.assertEqual((True, 0, 1), task.in_team())
+        self.assertTrue(task.logged_in)
+
+    def test_auto_combat_does_not_treat_empty_screen_as_single_member_team(self):
+        task = AutoCombatTask.__new__(AutoCombatTask)
+        task.find_one = lambda name, **kwargs: None
+        task.has_target = lambda: False
+        task.has_health_bar = lambda: False
+
+        self.assertEqual((False, -1, 1), task.in_team())
+
+
 if __name__ == "__main__":
     unittest.main()
