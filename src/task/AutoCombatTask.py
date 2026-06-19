@@ -6,11 +6,15 @@ from ok import TriggerTask, Logger
 from src.char.CharFactory import char_names
 from src.scene.WWScene import WWScene
 from src.task.BaseCombatTask import BaseCombatTask, NotInCombatException, CharDeadException
+from src.util.ControllerTrigger import ControllerTrigger
 
 logger = Logger.get_logger(__name__)
 
 
 class AutoCombatTask(BaseCombatTask, TriggerTask):
+
+    CONTROLLER_TRIGGER_DISABLED = "Disabled"
+    CONTROLLER_TRIGGER_R3 = "R3"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -24,14 +28,31 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
             'Auto Target': True,
             'Use Liberation': True,
             'Check Levitator': True,
+            'Controller Trigger': self.CONTROLLER_TRIGGER_DISABLED,
         })
         self.config_description = {
             'Auto Target': 'Turn off to enable auto combat only when manually target enemy using middle click',
             'Use Liberation': 'Do not use Liberation in Open World to Save Time',
             'Check Levitator': 'Toggle the levitator and verify if the character is floating',
+            'Controller Trigger': 'Start auto combat when the selected controller button is pressed',
+        }
+        self.config_type['Controller Trigger'] = {
+            'type': 'drop_down',
+            'options': [self.CONTROLLER_TRIGGER_DISABLED, self.CONTROLLER_TRIGGER_R3],
         }
         self.op_index = 0
         self.char_features_warmed_up = False
+        self.controller_trigger = ControllerTrigger()
+
+    def consume_controller_trigger(self):
+        trigger_name = self.config.get('Controller Trigger', self.CONTROLLER_TRIGGER_DISABLED)
+        if trigger_name == self.CONTROLLER_TRIGGER_DISABLED:
+            return False
+        try:
+            return self.controller_trigger.consume_pressed(trigger_name)
+        except Exception as e:
+            logger.warning(f'controller trigger failed: {e}')
+            return False
 
     def warm_up_char_features(self):
         if self.char_features_warmed_up:
@@ -53,6 +74,9 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
         self.use_liberation = self.config.get('Use Liberation')
         if not self.use_liberation and not self.in_world():  # 仅大世界生效
             self.use_liberation = True
+        if self.consume_controller_trigger() and not self.in_combat():
+            self.log_info('controller trigger pressed, bridge to keyboard/mouse auto combat')
+            self.click(after_sleep=0.05)
         combat_start = time.time()
         while self.in_combat():
             ret = True

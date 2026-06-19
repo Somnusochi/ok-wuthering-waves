@@ -1214,3 +1214,15 @@ msgstr "無"
 
 msgid "Guidebook Key"
 msgstr "索拉指南"
+
+msgid "Controller Trigger"
+msgstr "手把觸發"
+
+msgid "Start auto combat when the selected controller button is pressed"
+msgstr "按下指定手把按鍵時啟動自動戰鬥"
+
+msgid "Disabled"
+msgstr "關閉"
+
+msgid "R3"
+msgstr "R3"

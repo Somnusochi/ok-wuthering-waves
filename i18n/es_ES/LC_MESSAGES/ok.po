@@ -1084,3 +1084,15 @@ msgstr "Ninguno"
 
 msgid "Guidebook Key"
 msgstr "Guía de Solaris"
+
+msgid "Controller Trigger"
+msgstr "Activador de mando"
+
+msgid "Start auto combat when the selected controller button is pressed"
+msgstr "Inicia el combate automático al pulsar el botón de mando seleccionado"
+
+msgid "Disabled"
+msgstr "Desactivado"
+
+msgid "R3"
+msgstr "R3"

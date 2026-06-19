@@ -1170,3 +1170,15 @@ msgstr "なし"
 
 msgid "Guidebook Key"
 msgstr "ソラリスガイド"
+
+msgid "Controller Trigger"
+msgstr "コントローラー起動"
+
+msgid "Start auto combat when the selected controller button is pressed"
+msgstr "指定したコントローラーボタンを押すと自動戦闘を開始します"
+
+msgid "Disabled"
+msgstr "無効"
+
+msgid "R3"
+msgstr "R3"

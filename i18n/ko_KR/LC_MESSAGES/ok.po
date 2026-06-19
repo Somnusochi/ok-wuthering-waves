@@ -1171,3 +1171,15 @@ msgstr "없음"
 
 msgid "Guidebook Key"
 msgstr "솔라리스 가이드"
+
+msgid "Controller Trigger"
+msgstr "컨트롤러 트리거"
+
+msgid "Start auto combat when the selected controller button is pressed"
+msgstr "지정한 컨트롤러 버튼을 누르면 자동 전투를 시작합니다"
+
+msgid "Disabled"
+msgstr "비활성화"
+
+msgid "R3"
+msgstr "R3"
