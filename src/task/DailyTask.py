@@ -144,7 +144,7 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
             garden_task.open_garden_weekly_tab()
             if garden_task.is_weekly_garden_completed():
                 self.log_info('weekly garden already completed')
-                garden_task.claim_weekly_garden_reward()
+                garden_task.claim_weekly_garden_reward(already_confirmed=True)
                 return
             self.log_info('weekly garden not completed, run GardenTask')
             self.run_task_by_class(GardenTask)

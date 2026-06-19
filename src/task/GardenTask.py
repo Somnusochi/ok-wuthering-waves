@@ -92,10 +92,11 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
         self.open_garden_weekly_tab()
         self.click_garden_weekly_action()
 
-    def claim_weekly_garden_reward(self):
+    def claim_weekly_garden_reward(self, already_confirmed=False):
         self.info_set("current task", "claim weekly garden reward")
-        self.open_garden_weekly_tab()
-        if not self.is_weekly_garden_completed():
+        if not already_confirmed:
+            self.open_garden_weekly_tab()
+        if not already_confirmed and not self.is_weekly_garden_completed():
             self.log_info('weekly garden reward is not ready')
             self.ensure_main(time_out=30)
             return False
