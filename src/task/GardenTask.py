@@ -41,6 +41,7 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
         self.click_garden_weekly_action()
         self.click(0.246, 0.486, after_sleep=1)
         while True:
+            self.sleep(0.1)
             target = self.find_best_garden_feature()
             self.sleep(0.2)
             if target:
