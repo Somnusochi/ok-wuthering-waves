@@ -86,8 +86,8 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
         self.click(0.343, 0.129, after_sleep=1)
 
     def click_garden_weekly_action(self):
+        self.click(0.927, 0.893, after_sleep=3)
         self.click(0.927, 0.893, after_sleep=2)
-        self.click(0.927, 0.893, after_sleep=1)
 
     def open_garden_weekly_page(self):
         self.open_garden_weekly_tab()
