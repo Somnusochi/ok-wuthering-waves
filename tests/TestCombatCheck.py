@@ -67,6 +67,10 @@ class TestCombatCheck(TaskTestCase):
 
         self.task.chars[0].target_box_short_combat_check = True
         self.assertTrue(self.task.has_target())
+
+    def test_short_action_icon_is_not_target(self):
+        self.set_image('assets/images/35.png')
+        self.assertFalse(self.task.has_target())
         self.assertTrue(BaseChar(self.task, 0).has_short_action())
 
     def test_lucilla_enables_target_box_short_combat_check_from_char_factory(self):
