@@ -80,7 +80,7 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
                     else:
                         self.click(garden_restart, after_sleep=1)
                 self.sleep(0.2)
-        self.claim_weekly_garden_reward()
+        self.claim_weekly_garden_reward(already_confirmed=True)
         self.log_info('乐园任务完成, 已达到上限', notify=True)
 
     def open_garden_weekly_tab(self):
