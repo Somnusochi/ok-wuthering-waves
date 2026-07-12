@@ -76,8 +76,7 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
                     texts = self.ocr(0.373, 0.346, 0.859, 0.615)
                     self.log_info('garden end {}'.format(texts))
                     if self.is_garden_done(texts):
-                        self.click(garden_back, after_sleep=1)
-                        self.wait_book('gray_book_quest', time_out=30)
+                        self.return_to_garden_weekly_tab(garden_back)
                         break
                     else:
                         self.click(garden_restart, after_sleep=1)
@@ -97,6 +96,24 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
     def open_garden_weekly_page(self):
         self.open_garden_weekly_tab()
         self.click_garden_weekly_action()
+
+    def return_to_garden_weekly_tab(self, garden_back):
+        for _ in range(3):
+            self.click(garden_back, after_sleep=2)
+            if self.is_garden_weekly_tab_open():
+                return True
+            self.click(0.665, 0.85, after_sleep=2, name='garden_back_center')
+            if self.is_garden_weekly_tab_open():
+                return True
+            garden_back = self.find_one('a_garden_back') or garden_back
+        raise Exception('Failed to return to garden weekly tab')
+
+    def is_garden_weekly_tab_open(self):
+        return self.wait_until(
+            lambda: self.find_one('gray_book_quest', box='box_gray_book', threshold=0.6),
+            time_out=5,
+            settle_time=1,
+            raise_if_not_found=False)
 
     def claim_weekly_garden_reward(self, already_confirmed=False):
         self.info_set("current task", "claim weekly garden reward")
