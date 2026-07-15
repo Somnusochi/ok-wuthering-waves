@@ -94,15 +94,16 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
                 total_used += used
                 total_claims += max(1, used // self.stamina_once)
                 self.sleep(4)
-                if not can_continue:
+                reached_claim_target = max_claims is not None and total_claims >= max_claims
+                if not can_continue or reached_claim_target:
                     self.click(0.365, 0.853)
                     self.wait_in_team_and_world(time_out=120)
-                    return self.not_enough_stamina(back=False, used=total_used)
-                else:
-                    self.click(0.640, 0.851, after_sleep=3)
-                must_use -= used
-                if max_claims is not None and total_claims >= max_claims:
+                    if not can_continue:
+                        return self.not_enough_stamina(back=False, used=total_used)
+                    self.log_info('reached Tacet Suppression claim target')
                     return total_used
+                self.click(0.640, 0.851, after_sleep=3)
+                must_use -= used
 
     def not_enough_stamina(self, back=True, used=0):
         self.log_info(f"used all stamina")
