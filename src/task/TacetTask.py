@@ -102,7 +102,8 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
                         return self.not_enough_stamina(back=False, used=total_used)
                     self.log_info('reached Tacet Suppression claim target')
                     return total_used
-                self.click(0.640, 0.851, after_sleep=3)
+                self.click(0.640, 0.851, after_sleep=0.2)
+                self.wait_click_skip_dialog_confirm()
                 must_use -= used
 
     def not_enough_stamina(self, back=True, used=0):

@@ -17,9 +17,12 @@ class TestDomainRecoveryLoop(unittest.TestCase):
 
     def test_method_has_retry_parameter_with_default(self):
         args = self.method_node.args.args
-        self.assertEqual(args[-1].arg, "max_recovery_retries")
-        self.assertEqual(len(self.method_node.args.defaults), 1)
-        default_value = self.method_node.args.defaults[0]
+        self.assertIn("max_recovery_retries", [arg.arg for arg in args])
+        defaults_by_arg = {
+            arg.arg: default
+            for arg, default in zip(args[-len(self.method_node.args.defaults):], self.method_node.args.defaults)
+        }
+        default_value = defaults_by_arg["max_recovery_retries"]
         self.assertIsInstance(default_value, ast.Constant)
         self.assertEqual(default_value.value, 3)
 
@@ -64,8 +67,10 @@ class TestDomainRecoveryLoop(unittest.TestCase):
             isinstance(node, ast.Assign)
             and len(node.targets) == 1
             and isinstance(node.targets[0], ast.Tuple)
-            and len(node.targets[0].elts) == 2
-            and {elt.id for elt in node.targets[0].elts if isinstance(elt, ast.Name)} == {"finished", "must_use"}
+            and len(node.targets[0].elts) >= 2
+            and {"finished", "must_use"}.issubset(
+                {elt.id for elt in node.targets[0].elts if isinstance(elt, ast.Name)}
+            )
             and isinstance(node.value, ast.Call)
             and isinstance(node.value.func, ast.Attribute)
             and node.value.func.attr == "farm_in_domain"

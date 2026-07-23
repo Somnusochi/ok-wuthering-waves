@@ -1313,3 +1313,9 @@ msgstr "遊戲與okww語言必須為簡體/繁體中文,必須16:9解析度,使�
 
 msgid "数据坞五合一"
 msgstr "資料塢五合一"
+
+msgid "Rover"
+msgstr "漂泊者"
+
+msgid "Yangyang: Xuanling"
+msgstr "秧秧·玄翎"
