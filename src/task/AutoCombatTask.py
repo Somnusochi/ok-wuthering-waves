@@ -12,6 +12,7 @@ logger = Logger.get_logger(__name__)
 
 
 class AutoCombatTask(BaseCombatTask, TriggerTask):
+    owns_switch_healer_config = True
 
     CONTROLLER_TRIGGER_DISABLED = "Disabled"
     CONTROLLER_TRIGGER_R3 = "R3"
@@ -28,12 +29,14 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
             'Auto Target': True,
             'Use Liberation': True,
             'Check Levitator': True,
+            'Switch to Healer before and after Combat': True,
             'Controller Trigger': self.CONTROLLER_TRIGGER_DISABLED,
         })
         self.config_description = {
             'Auto Target': 'Turn off to enable auto combat only when manually target enemy using middle click',
             'Use Liberation': 'Do not use Liberation in Open World to Save Time',
             'Check Levitator': 'Toggle the levitator and verify if the character is floating',
+            'Switch to Healer before and after Combat': 'Better Chance to Keep Character Alive',
             'Controller Trigger': 'Start auto combat when the selected controller button is pressed',
         }
         self.config_type['Controller Trigger'] = {
@@ -101,9 +104,13 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
             self.log_info('controller trigger pressed, bridge to keyboard/mouse auto combat')
             self.click(after_sleep=0.05)
         combat_start = time.time()
+        switched_to_healer = False
         while self.in_combat():
             ret = True
             try:
+                if not switched_to_healer:
+                    self.switch_healer()
+                    switched_to_healer = True
                 self.get_current_char().perform()
             except CharDeadException:
                 self.log_error(f'Characters dead', notify=True)
@@ -113,6 +120,7 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
                 break
         if ret:
             self.combat_end()
+            self.switch_healer()
         return ret
 
     def realm_perform(self):

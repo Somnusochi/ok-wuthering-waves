@@ -7,6 +7,7 @@ from src.task.BaseWWTask import number_re
 from src.task.FarmEchoTask import FarmEchoTask
 from src.task.ForgeryTask import ForgeryTask
 from src.task.GardenTask import GardenTask
+from src.task.MergeEchoTask import MergeEchoTask
 from src.task.NightmareNestTask import NightmareNestTask
 from src.task.TacetTask import TacetTask
 from src.task.SimulationTask import SimulationTask
@@ -14,6 +15,12 @@ from src.task.WWOneTimeTask import WWOneTimeTask
 from src.task.BaseCombatTask import BaseCombatTask
 
 logger = Logger.get_logger(__name__)
+
+CHECK_WEEKLY_GARDEN = 'Check Weekly Garden'
+AUTO_FARM_NIGHTMARE_NEST = 'Auto Farm all Nightmare Nest'
+MERGE_ECHO_IF_DISCARDED_OVER_1000 = 'Merge Echo If discarded > 1000'
+TELEPORT_AND_FARM_4C_ECHO = 'Teleport and Farm 4C Echo'
+ADDITIONAL_TASKS = 'Additional Tasks to Run After Daily Task'
 
 
 class DailyTask(WWOneTimeTask, BaseCombatTask):
@@ -40,10 +47,8 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
             'Material Selection': 'Shell Credit',
             'Simulation Challenge Runs': 5,
             'Farm Goal': self.DAILY_PRIORITY_MODE,
-            'Auto Farm all Nightmare Nest': False,
             'Farm Nightmare Nest for Daily Echo': True,
-            'Check Weekly Garden': True,
-            'Continue Farm After Daily': False,
+            ADDITIONAL_TASKS: [CHECK_WEEKLY_GARDEN],
         }
         self.config_description = {
             'Which to Farm': 'Select one or more tasks to rotate through for daily stamina spending. Runs mean reward claims. The task auto-uses double rewards when possible. If planned claims are not enough, the last selected task continues until daily stamina is complete.',
@@ -52,9 +57,8 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
             'Material Selection': 'Resonator EXP / Weapon EXP / Shell Credit',
             'Farm Goal': 'Stop at daily 180, or finish every planned reward claim.',
             'Farm Nightmare Nest for Daily Echo': 'Farm 1 Echo from Nightmare Nest to complete Daily Task when needed.',
-            'Check Weekly Garden': 'After claiming daily rewards, check weekly Garden progress and run Garden Task '
-                                   'if 6000 points has not been reached.',
-            'Continue Farm After Daily': 'After completing daily activity, continue farming stamina until depleted.'
+            ADDITIONAL_TASKS: 'Select optional tasks. Nightmare Nest runs before stamina farming to help complete '
+                              'the daily task; the other tasks run afterward.',
         }
         material_option_list = ['Resonator EXP', 'Weapon EXP', 'Shell Credit']
         self.config_type = {
@@ -78,17 +82,29 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
             'Tacet Suppression Runs': {'min': 0},
             'Forgery Challenge Runs': {'min': 0},
             'Simulation Challenge Runs': {'min': 0},
+            ADDITIONAL_TASKS: {
+                'type': 'multi_selection',
+                'options': [
+                    CHECK_WEEKLY_GARDEN,
+                    AUTO_FARM_NIGHTMARE_NEST,
+                    MERGE_ECHO_IF_DISCARDED_OVER_1000,
+                    TELEPORT_AND_FARM_4C_ECHO,
+                ],
+            },
         }
         self.add_exit_after_config()
         self.description = "Login, claim monthly card, farm echo, and claim daily reward"
 
     def run(self):
+        self.validate_additional_tasks()
+
         WWOneTimeTask.run(self)
         self.logged_in = False
         self.ensure_main(time_out=180)
         selected_tasks = self._normalize_selected_tasks(self.config.get('Which to Farm'))
 
-        condition1 = self.config.get('Auto Farm all Nightmare Nest')
+        additional_tasks = self.config.get(ADDITIONAL_TASKS) or []
+        condition1 = AUTO_FARM_NIGHTMARE_NEST in additional_tasks
         condition2 = self.config.get('Farm Nightmare Nest for Daily Echo')
 
         used_stamina, daily_reward_ready = self.open_daily()
@@ -130,13 +146,41 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
         self.claim_mail()
         self.sleep(1)
         self.claim_battle_pass()
-        self.check_weekly_garden()
+        self.run_additional_tasks()
         self.ensure_main(time_out=30)
         self.log_info('Task completed', notify=True)
 
+    def validate_additional_tasks(self):
+        additional_tasks = self.config.get(ADDITIONAL_TASKS) or []
+        if TELEPORT_AND_FARM_4C_ECHO in additional_tasks:
+            farm_echo_task = self.get_task_by_class(FarmEchoTask)
+            if farm_echo_task.config.get('Teleport to Boss', 'No') == 'No':
+                raise Exception(
+                    self.tr(
+                        'Teleport and Farm 4C Echo requires "Teleport to Boss" to be enabled in Farm Echo Task.'
+                    )
+                )
+        if AUTO_FARM_NIGHTMARE_NEST in additional_tasks:
+            nightmare_task = self.get_task_by_class(NightmareNestTask)
+            if not nightmare_task.config.get('Which to Farm'):
+                raise Exception(
+                    self.tr(
+                        'Auto Farm all Nightmare Nest requires at least one "Which to Farm" option.'
+                    )
+                )
+        return True
+
+    def run_additional_tasks(self):
+        additional_tasks = self.config.get(ADDITIONAL_TASKS) or []
+        if CHECK_WEEKLY_GARDEN in additional_tasks:
+            self.check_weekly_garden()
+        if MERGE_ECHO_IF_DISCARDED_OVER_1000 in additional_tasks:
+            self.check_discarded_echo()
+        if TELEPORT_AND_FARM_4C_ECHO in additional_tasks:
+            self.log_info('Daily task completed, start teleport to farm 4C echo', notify=True)
+            self.run_task_by_class(FarmEchoTask)
+
     def check_weekly_garden(self):
-        if not self.config.get('Check Weekly Garden', True):
-            return
         self.info_set('current task', 'check weekly garden')
         self.log_info('check weekly garden')
         try:
@@ -154,6 +198,23 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
             self.log_error("GardenTask Failed", e)
             self.screenshot('GardenTask')
             self.ensure_main(time_out=180)
+
+    def check_discarded_echo(self):
+        self.info_set('current task', 'check discarded echo')
+        self.log_info('check discarded echo')
+        merge_echo_task = self.get_task_by_class(MergeEchoTask)
+        old_notify_if_not_enough = merge_echo_task.notify_if_not_enough
+        try:
+            merge_echo_task.notify_if_not_enough = False
+            self.run_task_by_class(MergeEchoTask)
+        except TaskDisabledException:
+            raise
+        except Exception as e:
+            self.log_error("MergeEchoTask Failed", e)
+            self.screenshot('MergeEchoTask')
+            self.ensure_main(time_out=180)
+        finally:
+            merge_echo_task.notify_if_not_enough = old_notify_if_not_enough
 
     def claim_battle_pass(self):
         self.log_info('battle pass')
