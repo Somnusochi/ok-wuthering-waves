@@ -274,7 +274,7 @@ config = {
         ["src.task.FastTravelTask", "FastTravelTask"],
         ["src.task.MouseResetTask", "MouseResetTask"],
     ], 'scene': ["src.scene.WWScene", "WWScene"],
-    'update_pyappify': {
+    'update_pyappify': None if os.environ.get('PYAPPIFY_APP_PROFILE') == 'Local' else {
         'to_version': '1.1.9',
         'zip_url': 'https://github.com/ok-oldking/ok-wuthering-waves/releases/download/v3.5.17/ok-ww-win32.zip',
         'sha256': '0ad4d89aae5995641136eb977536a05d2f9c567c9a43ab16c670a947bc301531',
