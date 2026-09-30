@@ -71,8 +71,8 @@ If a tracked local change must be protected before merging and `git stash` fails
 11. Run Python syntax compilation with the local packaged Python when no repository `.venv` exists, for example `local_ok_ww\data\apps\ok-ww\python\python.exe`.
 12. Build the launcher shell with `cargo build --release` from `pyappify_build\src-tauri`.
 13. Copy `pyappify_build\src-tauri\target\release\ok-ww.exe` to `local_ok_ww\ok-ww.exe`. Optionally also copy it to the repository root for convenience.
-14. Before verification, close any old `ok-ww.exe` / `pythonw.exe` process that belongs to the previous local launch. A stale backend can hide the real result of the new build.
-15. Open `local_ok_ww\ok-ww.exe`, not the root exe, for local verification.
+14. Before verification, close any old `ok-ww.exe` / `pythonw.exe` process that belongs to the previous local launch. A stale backend can hide the real result of the new build. That process is elevated because `pyappify.yml` sets `uac: true` and `admin: true`, so a non-elevated `Stop-Process` or `taskkill /F` fails with `拒绝访问` (Access Denied). It is also the user's live game-automation session, so ask before killing it, then stop it with an elevated `taskkill` and warn that a UAC prompt will appear. Do not rely on the window title to tell versions apart: it reads `OK-WW v0.0.NN Local - OK-WW` only briefly during startup and then collapses to `OK-WW`. Confirm the running version from the log's `PYAPPIFY_APP_VERSION` and `pyappify_executable` lines instead.
+15. Open `local_ok_ww\ok-ww.exe`, not the root exe, for local verification. This raises a second UAC prompt.
 
 After launch, verify the log under `local_ok_ww\logs\app.YYYY-MM-DD` contains all of these:
 
@@ -94,6 +94,17 @@ git --git-dir=.codex\local-source\.git --work-tree=.codex\local-source rev-parse
 git --git-dir=local_ok_ww\data\apps\ok-ww\repo\.git --work-tree=local_ok_ww\data\apps\ok-ww\repo rev-parse $LocalTag
 git --git-dir=.codex\local-source\.git --work-tree=.codex\local-source ls-tree HEAD .gitmodules ok_templates
 git --git-dir=local_ok_ww\data\apps\ok-ww\repo\.git --work-tree=local_ok_ww\data\apps\ok-ww\repo ls-tree HEAD .gitmodules ok_templates
+
+# find the previous local instance, then stop it elevated (UAC prompt).
+# ExecutablePath comes back empty for an elevated process queried from a
+# non-elevated shell, so take the PID from the log and confirm it is the local
+# build via pyappify_executable before killing it.
+$Log = "local_ok_ww\logs\app.$(Get-Date -Format yyyy-MM-dd)"
+$OldPid = (Select-String -Path $Log -Pattern 'OK start id:\d+ pid:(\d+)' |
+  Select-Object -Last 1).Matches[0].Groups[1].Value
+(Select-String -Path $Log -Pattern 'pyappify_executable:(\S+)' |
+  Select-Object -Last 1).Matches[0].Groups[1].Value
+Start-Process taskkill.exe -ArgumentList '/F','/PID',$OldPid -Verb RunAs -Wait
 ```
 
 Common failure modes:
@@ -104,3 +115,6 @@ Common failure modes:
 - Runtime loses `pyappify` imports after update: the helper package was missing from the internal repo and got deleted during repo-to-working sync.
 - Launch hangs after checking out the local tag and the log stops at `Found 1 submodules ... Updating them`: the local tag still contains a submodule gitlink. Remove it from the local packaging repositories and retag.
 - App starts then exits with `Unknown config type` after ok-script UI changes: a stale `working\ok` directory is shadowing the patched `site-packages\ok`. Remove the stale working copy or reinstall/copy the patched dependency consistently.
+- `Stop-Process` or `taskkill /F` returns `拒绝访问` (Access Denied) on the old `pythonw`: the local app runs elevated. Stop it with `Start-Process taskkill.exe -ArgumentList '/F','/PID',$OldPid -Verb RunAs`. Never report verification results while a stale elevated instance still holds the single-instance mutex, because the new launch will not start its own backend.
+- Grepping the launch log for `ERROR`, `Global`, or `v3.` produces false positives: the `ok:ok-script init` line dumps the entire config dict, which contains `global_configs` and the upstream `links` URLs. Judge the launch only by the five markers above.
+- Printing translations with the packaged Python dies with `UnicodeEncodeError: 'gbk' codec can't encode character`: set `PYTHONIOENCODING=utf-8`. The catalogs are fine; only the console encoding is wrong.
