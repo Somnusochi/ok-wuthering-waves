@@ -8,6 +8,26 @@
 - Fall back to `python` only when no local `.venv` interpreter exists.
 - Prefer invoking the interpreter directly, for example `.\.venv\Scripts\python.exe -m pytest`, instead of relying on shell activation.
 
+## Syncing upstream
+
+`origin` is the fork, `upstream` is `ok-oldking/ok-wuthering-waves`. When merging `upstream/master` into `master`:
+
+- First check whether there is anything to merge: `git rev-list --left-right --count master...upstream/master`. If upstream is not ahead, stop. Do not rebuild or retag the local package for nothing.
+- `src/char/*`: always take upstream. Do not preserve fork-local character edits.
+- Only the fork's own commits may be touched. Never rewrite or "clean up" other contributors' code or history.
+- Fork-specific work that must survive every merge: the `multi_selection_dropdown` UI in `src/task/DailyTask.py`, its gettext entries, this `AGENTS.md`, the `.github/pr-assets/` screenshots, and the related tests.
+- `ok_templates` is a submodule. Take upstream's gitlink, then run `git submodule update --init ok_templates`, or the tree keeps an unstaged submodule drift.
+- i18n needs care. Let the `i18n/*/LC_MESSAGES/ok.po` text catalogs three-way merge normally, then recompile every `ok.mo` from the merged `.po`:
+
+```bash
+for L in es_ES ja_JP ko_KR zh_CN zh_TW; do
+  msgfmt --check-format -o i18n/$L/LC_MESSAGES/ok.mo i18n/$L/LC_MESSAGES/ok.po
+done
+PYTHONIOENCODING=utf-8 python -c "import gettext;print(gettext.GNUTranslations(open('i18n/zh_CN/LC_MESSAGES/ok.mo','rb')).gettext('Farm Goal'))"
+```
+
+The last command must print `刷取目标`. Never resolve the binary `.mo` conflict by just taking one side: git cannot merge `.mo`, and gettext reads only `.mo` at runtime, so a stale or upstream-only `.mo` silently discards the fork's translations and the UI falls back to English. `msgfmt` output is byte-deterministic, so recompiling yields a stable diff.
+
 ## Local pyappify / exe build
 
 The Windows local build uses `local_ok_ww` as the runnable pyappify app root. Be careful: the outer `ok-ww.exe` is only the launcher shell; the Python app code is loaded from the pyappify app repositories under `local_ok_ww\data\apps\ok-ww`.
