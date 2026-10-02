@@ -2,13 +2,7 @@ import os
 import re
 from pathlib import Path
 
-from ok import Box, ConfigOption
-
-try:
-    from ok import Icon
-except ImportError:
-    from qfluentwidgets import FluentIcon as Icon
-
+from ok import Box, ConfigOption, Icon
 from ok.util.GlobalConfig import create_basic_options
 from src.game_launcher import get_game_launch_arguments
 from src.task.process_feature import process_feature

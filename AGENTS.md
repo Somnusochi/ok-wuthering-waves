@@ -135,6 +135,25 @@ Common failure modes:
 - Runtime loses `pyappify` imports after update: the helper package was missing from the internal repo and got deleted during repo-to-working sync.
 - Launch hangs after checking out the local tag and the log stops at `Found 1 submodules ... Updating them`: the local tag still contains a submodule gitlink. Remove it from the local packaging repositories and retag.
 - App starts then exits with `Unknown config type` after ok-script UI changes: a stale `working\ok` directory is shadowing the patched `site-packages\ok`. Remove the stale working copy or reinstall/copy the patched dependency consistently.
+- `Unknown config type: multi_selection_dropdown` right after upstream bumps the `ok-script` pin in `requirements.txt`: installing the new ok-script overwrites `ConfigItemFactory.py` and drops the local patch. See "Local ok-script patch" below and re-apply it before launching.
 - `Stop-Process` or `taskkill /F` returns `拒绝访问` (Access Denied) on the old `pythonw`: the local app runs elevated. Stop it with `Start-Process taskkill.exe -ArgumentList '/F','/PID',$OldPid -Verb RunAs`. Never report verification results while a stale elevated instance still holds the single-instance mutex, because the new launch will not start its own backend.
 - Grepping the launch log for `ERROR`, `Global`, or `v3.` produces false positives: the `ok:ok-script init` line dumps the entire config dict, which contains `global_configs` and the upstream `links` URLs. Judge the launch only by the five markers above.
 - Printing translations with the packaged Python dies with `UnicodeEncodeError: 'gbk' codec can't encode character`: set `PYTHONIOENCODING=utf-8`. The catalogs are fine; only the console encoding is wrong.
+
+## Local ok-script patch
+
+`src/task/DailyTask.py` uses `'type': "multi_selection_dropdown"` for 「刷什么」. That type does **not** exist in upstream ok-script — `ok-oldking/ok-script` PR #68 was never merged, so it lives only as a two-file patch inside the packaged interpreter:
+
+- `local_ok_ww\data\apps\ok-ww\python\Lib\site-packages\ok\ui\qt\tasks\LabelAndMultiSelectionDropDown.py` (new file, not in the wheel)
+- `local_ok_ww\data\apps\ok-ww\python\Lib\site-packages\ok\ui\qt\tasks\ConfigItemFactory.py` (one import plus one `elif resolved_type == 'multi_selection_dropdown':` branch)
+
+Installing a newer ok-script replaces `ConfigItemFactory.py` with the stock file. The widget file survives because pip only removes files listed in the wheel's RECORD, but it then becomes unreachable and DailyTask fails with `Unknown config type`. Whenever a merge changes the `ok-script` pin in `requirements.txt`:
+
+1. Back up both patched files before installing anything.
+2. Compare `Requires-Dist` between the old and new wheels. If the dependency set is unchanged, install with `pip install --no-deps --force-reinstall <wheel>` so the rest of the environment is not churned.
+3. Diff the stock new `ConfigItemFactory.py` against the stock old one. If they are identical, copy the backed-up patched file straight back.
+4. Clear stale bytecode: `find site-packages/ok -name __pycache__ -type d -exec rm -rf {} +`.
+5. Verify before launching: `grep -c multi_selection_dropdown .../ConfigItemFactory.py` must be at least 1, and a headless import (`QT_QPA_PLATFORM=offscreen`) of `LabelAndMultiSelectionDropDown` must succeed.
+6. Re-check after launch. pyappify did not re-run pip on the app version change, so the patch persists once applied — but confirm it in the log rather than assuming.
+
+Do not confuse `ok-script-fork/` (the clone of `Somnusochi/ok-script` at `0daee60`) with the live patch. That clone still uses the pre-rename `ok/gui/tasks/` path, while ok-script moved to `ok/ui/qt/`; the installed `ok/ui/qt/tasks/` copy is the adapted, authoritative one. Leftover directories under `site-packages/ok/gui/` are dead code: `ok/gui/__init__.py` installs a `_QtAliasFinder` on `sys.meta_path` that redirects every `ok.gui.*` import to `ok.ui.qt.*`, which is why upstream's `src/gui/CharacterCodeTab.py` can import `ok.gui.tasks.*` and still resolve.
