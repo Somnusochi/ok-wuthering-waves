@@ -5,7 +5,7 @@ import time
 import numpy as np
 
 from ok import Logger, TaskDisabledException, color_range_to_bound
-from src.task.BaseCombatTask import BaseCombatTask, CharRevivedException, white_color
+from src.task.BaseCombatTask import BaseCombatTask, CharDeadException, CharRevivedException, NotInCombatException, white_color
 from src.task.WWOneTimeTask import WWOneTimeTask
 from ok import find_boxes_by_name
 
@@ -106,7 +106,14 @@ class FarmEchoTask(WWOneTimeTask, BaseCombatTask):
         return True
 
     def run(self):
-        WWOneTimeTask.run(self)
+        # task 实例跨运行复用: 上次遗留的 _in_combat 会让启动期的 sleep(0.5) 直接判定脱战
+        self.do_reset_to_false()
+        try:
+            WWOneTimeTask.run(self)
+        except CharDeadException:
+            raise
+        except NotInCombatException as e:
+            self.log_info(f'out of combat while starting, ignored: {e}')
         self.use_liberation = self.config.get('Use Liberation')
         try:
             return self.do_run()
@@ -171,7 +178,12 @@ class FarmEchoTask(WWOneTimeTask, BaseCombatTask):
                     self.go_to_boss_minimap()
                     self.execute_treasure_hunt()
 
-                self.sleep(self.combat_wait_time)
+                try:
+                    self.sleep(self.combat_wait_time)
+                except CharDeadException:
+                    raise
+                except NotInCombatException as e:
+                    self.log_info(f'out of combat during combat wait, ignored: {e}')
                 self.log_info(f'combat_wait_time: {self.combat_wait_time}')
                 self.check_boss_name()
 
