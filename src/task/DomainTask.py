@@ -34,6 +34,9 @@ class DomainTask(WWOneTimeTask, BaseCombatTask):
         if not self.wait_in_team_and_world(time_out=max(self.teleport_timeout, 120), raise_if_not_found=False):
             return False
         self.sleep(0.5)
+        if self.realm_entry_at_heal_point:
+            logger.info('revive_action: left realm at heal point, skip teleport')
+            return True
         self.revive_at_tower_and_heal()
         return True
 
@@ -56,6 +59,7 @@ class DomainTask(WWOneTimeTask, BaseCombatTask):
         recovery_retries = 0
         total_used = 0
         total_claims = 0
+        self.realm_entry_at_heal_point = False
         while True:
             if max_claims is not None and total_claims >= max_claims:
                 return total_used
@@ -83,6 +87,7 @@ class DomainTask(WWOneTimeTask, BaseCombatTask):
                 self.make_sure_in_world()
                 return total_used
             self.log_info('farm_domain: death recovered, re-enter from F2 book')
+            self.realm_entry_at_heal_point = True  # 恢复后站在信标上, 从 F2 直接进本
             self.sleep(1)
 
     def farm_in_domain(self, must_use=0, max_claims=None, allow_double=True):

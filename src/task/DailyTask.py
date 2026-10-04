@@ -376,10 +376,13 @@ class DailyTask(WWOneTimeTask, BaseCombatTask):
             'allow_double': claim_count >= 2,
         }
         if target == self.TACET_TASK:
-            return self.get_task_by_class(TacetTask).farm_tacet(**kwargs)
-        if target == self.FORGERY_TASK:
-            return self.get_task_by_class(ForgeryTask).farm_forgery(**kwargs)
-        return self.get_task_by_class(SimulationTask).farm_simulation(**kwargs)
+            used = self.get_task_by_class(TacetTask).farm_tacet(**kwargs)
+        elif target == self.FORGERY_TASK:
+            used = self.get_task_by_class(ForgeryTask).farm_forgery(**kwargs)
+        else:
+            used = self.get_task_by_class(SimulationTask).farm_simulation(**kwargs)
+        # farm_tacet returns None when it gives up after too many death recoveries
+        return used or 0
 
     def run_daily_farm_rotation(self, selected_tasks, used_stamina, continue_until_depleted=False):
         goal_mode = self._get_goal_mode()

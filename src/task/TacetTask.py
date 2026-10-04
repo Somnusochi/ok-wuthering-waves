@@ -51,7 +51,7 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
         self.farm_tacet()
 
     def farm_tacet(self, daily=False, used_stamina=0, config=None, must_use=None, max_claims=None,
-                   allow_double=True):
+                   allow_double=True, max_recovery_retries=3):
         if config is None:
             config = self.config
         if must_use is None:
@@ -62,6 +62,8 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
         self.info_incr('used stamina', 0)
         total_used = 0
         total_claims = 0
+        recovery_retries = 0
+        self.realm_entry_at_heal_point = False
         while True:
             if max_claims is not None and total_claims >= max_claims:
                 return total_used
@@ -80,7 +82,17 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
             self.click_team_challenge()
             while True:
                 self.wait_in_team_and_world(time_out=120)
-                self.combat_once(target=True)
+                try:
+                    self.combat_once(target=True)
+                except CharRevivedException:
+                    recovery_retries += 1
+                    if recovery_retries >= max_recovery_retries:
+                        self.log_info(f'farm_tacet: exceeded recovery retries ({max_recovery_retries}), stop farming',
+                                      notify=True)
+                        return None
+                    self.log_info('farm_tacet: death recovered, re-enter from F2 book')
+                    self.realm_entry_at_heal_point = True  # 恢复后站在信标上, 从 F2 直接进本
+                    break
                 self.walk_to_treasure()
                 self.pick_f(handle_claim=False)
                 if not self.has_claim_stamina():
