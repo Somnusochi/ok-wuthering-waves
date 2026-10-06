@@ -28,6 +28,9 @@ class FakeFarmEchoTask:
             raise Exception('claim popup')
         self.incr_drop(True)
 
+    def do_reset_to_false(self):
+        pass  # fork guard: run() clears stale combat state before the startup sleep
+
     def handle_claim_button(self):
         return True
 

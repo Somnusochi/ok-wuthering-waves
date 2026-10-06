@@ -21,6 +21,8 @@ class TestFarmEchoOutOfCombatSurvival(unittest.TestCase):
     def make_task(self, repeat=2):
         task = FarmEchoTask.__new__(FarmEchoTask)
         task.config = {'Repeat Farm Count': repeat, 'Use Liberation': False}
+        task.info = {}
+        task.start_time = 0
         task.combat_wait_time = 3
         task.bypass_end_wait = True
         task._just_entered_boss_realm = False

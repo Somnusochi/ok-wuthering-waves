@@ -13,7 +13,8 @@ def make_task(config, is_team):
     task.total_boss_number = 20
     task.nightmare_structure = [5, 10]
     for name in ('ensure_main', 'info_set', 'openF2Book', 'open_boss_book', 'click', 'click_configured_boss_level',
-                 'click_team_challenge', 'wait_click_travel', 'wait_in_team_and_world', 'sleep'):
+                 'click_team_challenge', 'wait_click_travel', 'wait_in_team_and_world', 'sleep',
+                 'do_reset_to_false'):
         setattr(task, name, Mock())
     task.book_targets = []
     task.click_on_book_target = lambda serial, total, structure=None: task.book_targets.append(
