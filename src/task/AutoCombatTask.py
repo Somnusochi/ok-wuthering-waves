@@ -2,7 +2,7 @@ import time
 
 from qfluentwidgets import FluentIcon
 
-from ok import TriggerTask, Logger
+from ok import TriggerTask, Logger, TaskDisabledException
 from src.char.CharFactory import char_names
 from src.scene.WWScene import WWScene
 from src.task.BaseCombatTask import BaseCombatTask, NotInCombatException, CharDeadException
@@ -13,6 +13,7 @@ logger = Logger.get_logger(__name__)
 
 class AutoCombatTask(BaseCombatTask, TriggerTask):
     owns_switch_healer_config = True
+    _reset_combat_on_run = False
 
     CONTROLLER_TRIGGER_DISABLED = "Disabled"
     CONTROLLER_TRIGGER_R3 = "R3"
@@ -80,6 +81,17 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
             return True, 0, 1
         return in_team, current_index, count
 
+    def disable(self):
+        # The UI thread only invalidates state; the executor performs the reset.
+        self._reset_combat_on_run = True
+        super().disable()
+
+    def reset_auto_combat(self, reason):
+        self._reset_combat_on_run = False
+        self.reset_to_false(reason)
+        self.chars = [None, None, None]
+        self.freeze_durations = []
+
     def warm_up_char_features(self):
         if self.char_features_warmed_up:
             return
@@ -93,9 +105,19 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
         logger.info(f'warm_up_char_features loaded {len(char_names)} character templates')
 
     def run(self):
+        if self._reset_combat_on_run:
+            self.reset_auto_combat('auto combat restarted')
+        try:
+            return self.run_auto_combat()
+        except TaskDisabledException:
+            self.reset_auto_combat('auto combat disabled')
+            raise
+
+    def run_auto_combat(self):
         self.warm_up_char_features()
         ret = False
         if not self.scene.in_team(self.in_team_and_world):
+            self.reset_auto_combat('not in team and world')
             return ret
         self.use_liberation = self.config.get('Use Liberation')
         if not self.use_liberation and not self.in_world():  # 仅大世界生效
