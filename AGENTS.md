@@ -8,6 +8,18 @@
 - Fall back to `python` only when no local `.venv` interpreter exists.
 - Prefer invoking the interpreter directly, for example `.\.venv\Scripts\python.exe -m pytest`, instead of relying on shell activation.
 
+## Fork Scope (2026-11-07)
+
+Keep only controller-triggered auto combat (R3, disabled by default) and auto
+combat for single-character story/trial encounters without the usual party HUD.
+Their implementation is in `src/task/AutoCombatTask.py` and
+`src/util/ControllerTrigger.py`; tests are in `tests/TestControllerTrigger.py`.
+Keep their necessary gettext entries and this operational build guide.
+Everything else follows upstream, including characters, daily tasks, farming,
+Garden, death recovery, normal dropdowns, and translations. Do not restore the
+old daily multi-select UI, claim-count extensions, farming guards, their obsolete
+tests, or PR screenshots. Do not reapply the old ok-script widget/factory patch.
+
 ## Syncing upstream
 
 `origin` is the fork, `upstream` is `ok-oldking/ok-wuthering-waves`. When merging `upstream/master` into `master`:
@@ -15,10 +27,7 @@
 - First check whether there is anything to merge: `git rev-list --left-right --count master...upstream/master`. If upstream is not ahead, stop. Do not rebuild or retag the local package for nothing.
 - `src/char/*`: always take upstream. Do not preserve fork-local character edits.
 - Only the fork's own commits may be touched. Never rewrite or "clean up" other contributors' code or history.
-- Fork-specific work that must survive every merge: the `multi_selection_dropdown` UI in `src/task/DailyTask.py`, its gettext entries, this `AGENTS.md`, the `.github/pr-assets/` screenshots, and the related tests. Since v3.7.3 this also includes `tests/TestDeathReentry.py`, whose stubs are widened for the fork's signatures, so it will conflict again whenever upstream touches that file. It also includes the out-of-combat guards in `src/task/FarmEchoTask.py` and `tests/TestFarmEchoOutOfCombat.py`; see below.
-- The fork widens signatures that upstream tests like to stub: `use_stamina(..., allow_double=)`, `farm_in_domain(..., max_claims=, allow_double=)` returning a 4-tuple `(finished, must_use, used, claims)`, and `farm_tacet(..., must_use=, max_claims=, allow_double=)`. A new upstream test that stubs these with a narrow `lambda` fails with `TypeError: ... got an unexpected keyword argument`. Widen the stub with `**kwargs` and match the 4-tuple in the fork's copy of that test; never weaken the fork feature just to satisfy a stub.
-- Upstream's death-recovery paths `return None` (for example `farm_tacet` once `max_recovery_retries` is exceeded), while the fork's `farm_*` functions return used stamina as an `int` and `DailyTask` compares `used <= 0`. Keep the normalization in `DailyTask._run_daily_farm_target` (`return used or 0`): it stops `None` from reaching that comparison as a `TypeError`, and it leaves upstream's `return None` and its `assertIsNone` assertions untouched.
-- `FarmEchoTask` must not let a transient out-of-combat kill the whole run. Upstream leaves two sleeps unprotected: `WWOneTimeTask.run(self)` in `run()` sits before the `try`, and because the task instance is reused across runs a stale `_in_combat` makes its `sleep(0.5)` raise `NotInCombatException` about 180 ms after Start; and `self.sleep(self.combat_wait_time)` in `do_run()` sits outside `combat_once`'s handler, so with `Teleport to Boss: No` the generic `except Exception` re-raises and the task stops. The fork calls `do_reset_to_false()` at the top of `run()` and guards both sleeps with `except CharDeadException: raise` followed by `except NotInCombatException`. Keep the `CharDeadException` re-raise first: `CharRevivedException` subclasses it and `do_run`'s death-recovery handler must still see it. The underlying churn is open-world target loss (`target_enemy_time_out` is 1.2 s outside a realm vs 3 s inside, and roughly 30 % of lock losses fail to re-acquire); the guards only stop that churn from being fatal, they do not reduce it. `tests/TestFarmEchoOutOfCombat.py` covers both paths plus the re-raise guards, and is a new file, so it will not conflict. Because `do_reset_to_false()` sits at the very top of `run()`, any test that binds the real `FarmEchoTask.run` onto a bare stub needs `do_reset_to_false` (and, since upstream v3.7.4, `info`, because `run()` now opens with `if not self.info.get('Echo Count'): self.start_time = time.time()`). Missing either surfaces as an `AttributeError`, not an assertion failure. On 2026-10-06 this broke `tests/TestFarmEchoTeleport.py`, `tests/TestFarmEchoOutOfCombat.py` and upstream's new `tests/TestFarmEchoTaskEchoRate.py` simultaneously; widen the stubs, never drop the guard.
+- Preserve only the two features listed in Fork Scope, their tests, and their necessary gettext entries. All other application files must match upstream. Do not rewrite commit history to remove retired features; remove them in a normal commit.
 - Follow upstream's representation of `ok_templates`. When `git ls-tree upstream/master ok_templates` reports mode `160000`, take its gitlink and run `git submodule update --init ok_templates`. Since upstream commit `20a43c44`, it is a normal tracked directory (mode `040000`) and `.gitmodules` is removed: preserve its tracked files, and do not recreate a gitlink. Before this one-time migration, verify the old submodule is clean and back it up, then deinitialize its working directory so the merge can write the regular files.
 - i18n needs care. Let the `i18n/*/LC_MESSAGES/ok.po` text catalogs three-way merge normally, then recompile every `ok.mo` from the merged `.po`:
 
@@ -26,10 +35,10 @@
 for L in es_ES ja_JP ko_KR zh_CN zh_TW; do
   msgfmt --check-format -o i18n/$L/LC_MESSAGES/ok.mo i18n/$L/LC_MESSAGES/ok.po
 done
-PYTHONIOENCODING=utf-8 python -c "import gettext;print(gettext.GNUTranslations(open('i18n/zh_CN/LC_MESSAGES/ok.mo','rb')).gettext('Farm Goal'))"
+PYTHONIOENCODING=utf-8 python -c "import gettext;print(gettext.GNUTranslations(open('i18n/zh_CN/LC_MESSAGES/ok.mo','rb')).gettext('Controller Trigger'))"
 ```
 
-The last command must print `刷取目标`. Never resolve the binary `.mo` conflict by just taking one side: git cannot merge `.mo`, and gettext reads only `.mo` at runtime, so a stale or upstream-only `.mo` silently discards the fork's translations and the UI falls back to English. `msgfmt` output is byte-deterministic, so recompiling yields a stable diff.
+The last command must print `手柄触发`. Never resolve the binary `.mo` conflict by just taking one side: gettext reads `.mo` at runtime. Preserve upstream translations and add only the retained controller feature's entries. Do not restore retired daily-task translations.
 
 ## Local pyappify / exe build
 
@@ -71,6 +80,18 @@ Do not allow local build config to fall back to upstream profiles such as `China
 
 Required local packaging flow:
 
+### Safety Gate: Stage First
+
+- Inspect real `ok-ww.exe` / `pythonw.exe` processes with sufficient read privileges before making any runtime changes. A sandboxed or non-elevated query can hide an elevated process.
+- Copy the runtime and local source repo into a separate directory under `data/`. All dependency installation, source copying, asset removal, and verification steps below apply to that staged copy first, never to a running installation.
+- Set `PYTHONNOUSERSITE=1` during isolated installation and tests. Do not upgrade or uninstall the user's global/Roaming packages. Use the staged interpreter when no project `.venv` exists.
+- Keep the current Local profile's final `git_url` in the staged configuration. Commit the package only once in the staged source, and fetch the same commit into the staged internal repo.
+- Before publishing, check active processes again. If an old session exists, ask before stopping it. If permission is declined, keep the new build staged and leave all live source, dependencies, assets, app.json, and local-source tags unchanged.
+- Once no old session remains, preserve current configs, fast-forward `.codex/local-source` to the staged commit, and publish the validated runtime. Check resolved absolute paths before directory moves. Keep the previous runtime as a rollback copy.
+- Never repeat the 2026-10-31 failure: replacing resources under a running old process caused GardenTask to request the deleted `assets/images/38.png`.
+
+### Packaging Steps
+
 1. Preserve unrelated user changes in the main repository. Do not commit or revert them unless explicitly asked. Before merging or pushing, compare the local branch against both remotes so the scope is explicit:
 
 ```powershell
@@ -87,7 +108,7 @@ If a tracked local change must be protected before merging and `git stash` fails
 4. After copying tracked files, overwrite `pyappify.yml` in all three target trees with `local_ok_ww\pyappify.yml` so the Local profile is preserved.
 5. Ensure a `pyappify` helper package exists in both `.codex\local-source\pyappify` and `local_ok_ww\data\apps\ok-ww\repo\pyappify`. If needed, restore it from `local_ok_ww\data\apps\ok-ww\python\Lib\site-packages\pyappify`.
 6. For the local pyappify source only, do not commit submodule gitlinks. Remove `.gitmodules` and index entries with mode `160000` from `.codex\local-source` and `local_ok_ww\data\apps\ok-ww\repo` before tagging, or the launcher can hang while updating submodules. Preserve ordinary tracked files under `ok_templates`: upstream now vendors this directory, so its mode `040000` tree must remain in both local package commits and the runtime working directory.
-7. If `local_ok_ww\data\apps\ok-ww\python\Lib\site-packages\ok` contains a patched ok-script dependency, remove stale `local_ok_ww\data\apps\ok-ww\working\ok` before verification so the working tree does not shadow the installed dependency.
+7. Use the stock ok-script dependency. Remove stale `working\ok` shadows and retired custom widget patches from the staged copy. With ok-script 3.x, remove incompatible old Qt distributions from the staged interpreter before installing the upstream lockfile.
 8. Commit changes inside `.codex\local-source` and tag/retag the local version, for example `v0.0.18`.
 9. Commit changes inside `local_ok_ww\data\apps\ok-ww\repo` and tag/retag the same local version. Make sure the internal repo tag points to the same commit as `.codex\local-source`. Committing separately in each repo yields different SHAs because the committer timestamps differ; instead commit once in `.codex\local-source`, then in the internal repo run `git fetch <abs path to>/.codex/local-source master` followed by `git merge --ff-only FETCH_HEAD`, which reproduces the identical SHA. The `--ff-only` aborts with `Please move or remove them before you merge` for files that are new in the incoming commit but still untracked locally (a prior `git reset` leaves them that way); re-stage with `git add -A`, confirm `git diff --cached FETCH_HEAD --name-only` is empty so the fast-forward provably discards nothing, then merge.
 10. Write `local_ok_ww\data\apps\ok-ww\app.json` as UTF-8 without BOM. Set `current_version`, `app_starting_version`, and `available_versions[0]` to the local tag, and set `current_profile` plus the sole profile name to `Local`.
@@ -137,26 +158,13 @@ Common failure modes:
 - App silently switches to an online version: one of the local `pyappify.yml` files or the internal repo tag still points at upstream profiles.
 - Runtime loses `pyappify` imports after update: the helper package was missing from the internal repo and got deleted during repo-to-working sync.
 - Launch hangs after checking out the local tag and the log stops at `Found 1 submodules ... Updating them`: the local tag still contains a submodule gitlink. Remove it from the local packaging repositories and retag.
-- App starts then exits with `Unknown config type` after ok-script UI changes: a stale `working\ok` directory is shadowing the patched `site-packages\ok`. Remove the stale working copy or reinstall/copy the patched dependency consistently.
-- `Unknown config type: multi_selection_dropdown` right after upstream bumps the `ok-script` pin in `requirements.txt`: installing the new ok-script overwrites `ConfigItemFactory.py` and drops the local patch. See "Local ok-script patch" below and re-apply it before launching.
+- App starts then exits with `Unknown config type`: verify the app matches upstream except the two retained features. `multi_selection_dropdown` is retired; do not reapply its old dependency patch. Check for stale `working\ok` shadows or mismatched versions.
 - `Stop-Process` or `taskkill /F` returns `拒绝访问` (Access Denied) on the old `pythonw`: the local app runs elevated. Stop it with `Start-Process taskkill.exe -ArgumentList '/F','/PID',$OldPid -Verb RunAs`. Never report verification results while a stale elevated instance still holds the single-instance mutex, because the new launch will not start its own backend.
 - Grepping the launch log for `ERROR`, `Global`, or `v3.` produces false positives: the `ok:ok-script init` line dumps the entire config dict, which contains `global_configs` and the upstream `links` URLs. Judge the launch only by the five markers above.
 - Printing translations with the packaged Python dies with `UnicodeEncodeError: 'gbk' codec can't encode character`: set `PYTHONIOENCODING=utf-8`. The catalogs are fine; only the console encoding is wrong.
 
-## Local ok-script patch
+## Stock ok-script
 
-`src/task/DailyTask.py` uses `'type': "multi_selection_dropdown"` for 「刷什么」. That type does **not** exist in upstream ok-script — `ok-oldking/ok-script` PR #68 was never merged, so it lives only as a two-file patch inside the packaged interpreter:
+The application now follows upstream's Qt kit and pinned ok-script version. Do not modify its installed factory or add custom multi-selection widgets. `ok-script-fork/` is only a separate old checkout and is not a runtime dependency. Keep all dependency changes confined to the staged interpreter until publication.
 
-- `local_ok_ww\data\apps\ok-ww\python\Lib\site-packages\ok\ui\qt\tasks\LabelAndMultiSelectionDropDown.py` (new file, not in the wheel)
-- `local_ok_ww\data\apps\ok-ww\python\Lib\site-packages\ok\ui\qt\tasks\ConfigItemFactory.py` (one import plus one `elif resolved_type == 'multi_selection_dropdown':` branch)
-
-Installing a newer ok-script replaces `ConfigItemFactory.py` with the stock file. The widget file survives because pip only removes files listed in the wheel's RECORD, but it then becomes unreachable and DailyTask fails with `Unknown config type`. Whenever a merge changes the `ok-script` pin in `requirements.txt`:
-
-1. Back up both patched files before installing anything.
-2. Compare `Requires-Dist` between the old and new wheels. If the dependency set is unchanged, install with `pip install --no-deps --force-reinstall <wheel>` so the rest of the environment is not churned.
-3. Diff the stock new `ConfigItemFactory.py` against the stock old one. If they are identical, copy the backed-up patched file straight back.
-4. Clear stale bytecode: `find site-packages/ok -name __pycache__ -type d -exec rm -rf {} +`.
-5. Verify before launching: `grep -c multi_selection_dropdown .../ConfigItemFactory.py` must be at least 1, and a headless import (`QT_QPA_PLATFORM=offscreen`) of `LabelAndMultiSelectionDropDown` must succeed.
-6. Re-check after launch. pyappify did not re-run pip on the app version change, so the patch persists once applied — but confirm it in the log rather than assuming.
-
-Do not confuse `ok-script-fork/` (the clone of `Somnusochi/ok-script` at `0daee60`) with the live patch. That clone still uses the pre-rename `ok/gui/tasks/` path, while ok-script moved to `ok/ui/qt/`; the installed `ok/ui/qt/tasks/` copy is the adapted, authoritative one. Leftover directories under `site-packages/ok/gui/` are dead code: `ok/gui/__init__.py` installs a `_QtAliasFinder` on `sys.meta_path` that redirects every `ok.gui.*` import to `ok.ui.qt.*`, which is why upstream's `src/gui/CharacterCodeTab.py` can import `ok.gui.tasks.*` and still resolve.
+The launcher's startup log may stop after the main window displays. Subsequent backend errors are in `local_ok_ww\data\apps\ok-ww\working\logs\ok-script.log`; read that file when diagnosing live task failures.

@@ -1,12 +1,12 @@
 import re
 
-from qfluentwidgets import FluentIcon
 
 from ok import Logger, run_task
 from config import config
 from src.Labels import Labels
 from src.task.BaseWWTask import BaseWWTask
 from src.task.WWOneTimeTask import WWOneTimeTask
+from src.task.task_icons import task_icon
 
 logger = Logger.get_logger(__name__)
 
@@ -16,11 +16,11 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.name = "自动周常乐园"
+        self.name = "🎡 自动周常乐园"
+        self.icon = task_icon('garden')
+        self.group_name = 'Daily Activities'
+        self.group_icon = task_icon('category-daily')
         self.description = "Detect and click garden actions until the task is stopped."
-        self.icon = FluentIcon.GAME
-        self.group_name = "Daily"
-        self.group_icon = FluentIcon.CALENDAR
         self.garden_features = [
             label.value for label in Labels
             if label.value.startswith("garden_")
@@ -33,12 +33,10 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
     def run(self):
         WWOneTimeTask.run(self)
         self.ensure_main()
-        self.open_garden_weekly_tab()
+        self.open_garden_weekly_page()
         if self.is_weekly_garden_completed():
-            self.claim_weekly_garden_reward()
-            self.log_info('乐园任务完成, 已达到上限', notify=True)
+            self.log_info(self.tr('Garden task completed; limit reached'), notify=True)
             return
-        self.click_garden_weekly_action()
         self.click(0.246, 0.486, after_sleep=1)
         while True:
             self.sleep(0.1)
@@ -48,7 +46,7 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
                 self.info_set("current task", target.name)
                 if target.name == 'garden_get_skip':
                     self.sleep(1)
-                    self.log_info(f"click garden_get_confirm")
+                    self.log_info(self.tr('click garden_get_confirm'))
                     if gold := self.find_one('garden_get_gold', horizontal_variance=0.9):
                         self.click(gold, after_sleep=1)
                     elif purple := self.find_one('garden_get_purple', horizontal_variance=0.9):
@@ -65,7 +63,7 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
                 elif target.name == 'garden_start_game':
                     # At Garden Entrance, choose blessing1
                     self._choose_first_blessing()
-                self.log_info(f"click {target.name} {target.confidence:.3f}")
+                self.log_info(self.tr('click {name} {confidence:.3f}').format(name=target.name, confidence=target.confidence))
                 self.click(target, after_sleep=1)
             else:
                 garden_restart = self.find_one('a_garden_restart')
@@ -74,63 +72,30 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
                     # 避免因点击太快，导致[挑战失败]页面中点击[返回主页]失败
                     self.sleep(2)
                     texts = self.ocr(0.373, 0.346, 0.859, 0.615)
-                    self.log_info('garden end {}'.format(texts))
+                    self.log_info(self.tr('Garden finished: {texts}').format(texts=texts))
                     if self.is_garden_done(texts):
-                        self.return_to_garden_weekly_tab(garden_back)
+                        self.click(garden_back, after_sleep=1)
+                        if self.wait_feature('garden_start_game', settle_time=1, time_out=5):
+                            self.back(after_sleep=1)
+                        if self.wait_book('gray_book_quest', time_out=30):
+                            self.click(0.927, 0.893, after_sleep=2)
+                            self.click(0.927, 0.893, after_sleep=1)
                         break
                     else:
                         self.click(garden_restart, after_sleep=1)
                 self.sleep(0.2)
-        self.claim_weekly_garden_reward(already_confirmed=True)
-        self.log_info('乐园任务完成, 已达到上限', notify=True)
+        self.log_info(self.tr('Garden task completed; limit reached'), notify=True)
 
-    def open_garden_weekly_tab(self):
+    def open_garden_weekly_page(self):
         self.openF2Book('gray_book_quest')
         self.sleep(1)
         self.click(0.343, 0.129, after_sleep=1)
-
-    def click_garden_weekly_action(self):
         self.click(0.927, 0.893, after_sleep=3)
         self.click(0.927, 0.893, after_sleep=2)
 
-    def open_garden_weekly_page(self):
-        self.open_garden_weekly_tab()
-        self.click_garden_weekly_action()
-
-    def return_to_garden_weekly_tab(self, garden_back):
-        for _ in range(3):
-            self.click(garden_back, after_sleep=2)
-            if self.is_garden_weekly_tab_open():
-                return True
-            self.click(0.665, 0.85, after_sleep=2, name='garden_back_center')
-            if self.is_garden_weekly_tab_open():
-                return True
-            garden_back = self.find_one('a_garden_back') or garden_back
-        raise Exception('Failed to return to garden weekly tab')
-
-    def is_garden_weekly_tab_open(self):
-        return self.wait_until(
-            lambda: self.find_one('gray_book_quest', box='box_gray_book', threshold=0.6),
-            time_out=5,
-            settle_time=1,
-            raise_if_not_found=False)
-
-    def claim_weekly_garden_reward(self, already_confirmed=False):
-        self.info_set("current task", "claim weekly garden reward")
-        if not already_confirmed:
-            self.open_garden_weekly_tab()
-        if not already_confirmed and not self.is_weekly_garden_completed():
-            self.log_info('weekly garden reward is not ready')
-            self.ensure_main(time_out=30)
-            return False
-        self.log_info('claim weekly garden reward via coordinate')
-        self.click_garden_weekly_action()
-        self.ensure_main(time_out=30)
-        return True
-
     def is_weekly_garden_completed(self):
         current = self.ocr(0.102, 0.793, 0.284, 0.956, match=self.GARDEN_TARGET_POINTS)
-        self.log_info(f"Garden current: {current}")
+        self.log_info(self.tr('Garden current: {current}').format(current=current))
         return bool(current)
 
     def is_garden_done(self, texts):
@@ -160,11 +125,12 @@ class GardenTask(WWOneTimeTask, BaseWWTask):
     def _choose_first_blessing(self):
         """At Garden Entrance, choose first blessing"""
         # click blessing botton
-        self.click(965/1920, 860/1080, after_sleep=2)
+        self.click(965 / 1920, 860 / 1080, after_sleep=2)
         # choose blessing1(Add-on)
-        self.click(700/1920, 666/1080, after_sleep=2)
+        self.click(700 / 1920, 666 / 1080, after_sleep=2)
         # confirm
-        self.click(1600/1920, 900/1080, after_sleep=2)
+        self.click(1600 / 1920, 900 / 1080, after_sleep=2)
+
 
 if __name__ == "__main__":
     run_task(config, task=GardenTask, debug=True)

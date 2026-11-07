@@ -1,8 +1,7 @@
-from qfluentwidgets import FluentIcon
-
 from ok import Logger
 from src.task.BaseCombatTask import BaseCombatTask, CharRevivedException
 from src.task.WWOneTimeTask import WWOneTimeTask
+from src.task.task_icons import task_icon
 
 logger = Logger.get_logger(__name__)
 
@@ -11,11 +10,11 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.icon = FluentIcon.FLAG
-        self.group_name = "Dungeon"
-        self.group_icon = FluentIcon.HOME
         self.description = "Farms the selected Tacet Suppression, until no stamina. Must be able to teleport (F2)."
-        self.name = "Tacet Suppression"
+        self.name = "🌊 Tacet Suppression"
+        self.icon = task_icon('tacet')
+        self.group_name = 'Daily Activities'
+        self.group_icon = task_icon('category-daily')
         self.support_schedule_task = True
         default_config = {
             'Which Tacet Suppression to Farm': 1,  # starts with 1
@@ -50,23 +49,17 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
         self.wait_in_team_and_world(esc=True)
         self.farm_tacet()
 
-    def farm_tacet(self, daily=False, used_stamina=0, config=None, must_use=None, max_claims=None,
-                   allow_double=True, max_recovery_retries=3):
+    def farm_tacet(self, daily=False, used_stamina=0, config=None, max_recovery_retries=3):
         if config is None:
             config = self.config
-        if must_use is None:
-            if daily:
-                must_use = 180 - used_stamina
-            else:
-                must_use = 0
+        if daily:
+            must_use = 180 - used_stamina
+        else:
+            must_use = 0
         self.info_incr('used stamina', 0)
-        total_used = 0
-        total_claims = 0
         recovery_retries = 0
         self.realm_entry_at_heal_point = False
         while True:
-            if max_claims is not None and total_claims >= max_claims:
-                return total_used
             self.sleep(1)
             self.openF2Book("gray_book_boss")
             current, back_up, total = self.get_stamina()
@@ -74,7 +67,7 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
                 self.click_relative(0.04, 0.4, after_sleep=1)
                 current, back_up, total = self.get_stamina()
             if total < self.stamina_once:
-                return self.not_enough_stamina(used=total_used)
+                return self.not_enough_stamina()
 
             self.open_boss_book('wuyin')
             index = config.get('Which Tacet Suppression to Farm', 1) - 1
@@ -87,47 +80,38 @@ class TacetTask(WWOneTimeTask, BaseCombatTask):
                 except CharRevivedException:
                     recovery_retries += 1
                     if recovery_retries >= max_recovery_retries:
-                        self.log_info(f'farm_tacet: exceeded recovery retries ({max_recovery_retries}), stop farming',
+                        self.log_info(self.tr('farm_tacet: exceeded recovery retries ({max_recovery_retries}), stop farming').format(max_recovery_retries=max_recovery_retries),
                                       notify=True)
                         return None
-                    self.log_info('farm_tacet: death recovered, re-enter from F2 book')
+                    self.log_info(self.tr('farm_tacet: death recovered, re-enter from F2 book'))
                     self.realm_entry_at_heal_point = True  # 恢复后站在信标上, 从 F2 直接进本
                     break
                 self.walk_to_treasure()
                 self.pick_f(handle_claim=False)
+                self.sleep(2)
                 if not self.has_claim_stamina():
-                    self.click(0.352, 0.624, after_sleep=1)
-                    self.log_info('is not claim treasure, restart challenge')
+                    self.esc_cancel()
+                    self.log_info(self.tr('is not claim treasure, restart challenge'))
                     continue
-                can_continue, used = self.use_stamina(
-                    once=self.stamina_once,
-                    must_use=must_use,
-                    allow_double=allow_double,
-                )
+                can_continue, used = self.use_stamina(once=self.stamina_once, must_use=must_use)
                 self.info_incr('used stamina', used)
-                total_used += used
-                total_claims += max(1, used // self.stamina_once)
                 self.sleep(4)
-                reached_claim_target = max_claims is not None and total_claims >= max_claims
-                if not can_continue or reached_claim_target:
-                    self.click(0.365, 0.853)
+                if not can_continue:
+                    self.click_relative(0.365, 0.853, hcenter=True)
                     self.wait_in_team_and_world(time_out=120)
-                    if not can_continue:
-                        return self.not_enough_stamina(back=False, used=total_used)
-                    self.log_info('reached Tacet Suppression claim target')
-                    return total_used
-                self.click(0.640, 0.851, after_sleep=0.2)
-                self.wait_click_skip_dialog_confirm()
+                    return None
+                else:
+                    self.click_relative(0.640, 0.851, hcenter=True, after_sleep=0.2)
+                    self.wait_click_skip_dialog_confirm()
                 must_use -= used
 
-    def not_enough_stamina(self, back=True, used=0):
-        self.log_info(f"used all stamina")
+    def not_enough_stamina(self, back=True):
+        self.log_info(self.tr('used all stamina'))
         if back:
             self.back(after_sleep=1)
-        return used
 
     def teleport_to_tacet(self, index):
         self.info_set('Teleport to Tacet Suppression', index)
         if index >= self.total_number:
-            raise IndexError(f'Index out of range, max is {self.total_number}')
+            raise IndexError(self.tr('Index out of range, max is {total_number}').format(total_number=self.total_number))
         return self.click_on_book_target(index + 1, self.total_number, self.structure)

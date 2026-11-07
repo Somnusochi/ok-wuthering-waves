@@ -47,8 +47,7 @@ class TestTacetDeathReentry(unittest.TestCase):
         task.get_stamina = lambda: (120, 0, 120)
         task.teleport_to_tacet = lambda index: task.teleports.append(index)
         task.has_claim_stamina = lambda: True
-        # this fork's farm_tacet passes allow_double through to use_stamina
-        task.use_stamina = lambda once, must_use, **kwargs: (False, once)
+        task.use_stamina = lambda once, must_use: (False, once)
         task.log_info = lambda message, **kwargs: task.logs.append(message)
         return task
 
@@ -180,10 +179,8 @@ class TestDomainHealPoint(unittest.TestCase):
         task.realm_entry_at_heal_point = True  # 上一次运行的残留
         task.open_F2_book_and_get_stamina = lambda: (120, 0, 120)
         task.sleep = task.log_info = lambda *args, **kwargs: None
-        # this fork's farm_in_domain takes max_claims/allow_double and returns
-        # (finished, must_use, used, claims)
-        results = iter([(False, 0, 0, 0), (False, 0, 0, 0), (True, 0, 0, 0)])
-        task.farm_in_domain = lambda must_use, **kwargs: next(results)
+        results = iter([(False, 0), (False, 0), (True, 0)])
+        task.farm_in_domain = lambda must_use: next(results)
         flags = record_heal_point(task, 'farm_in_domain')
 
         task.farm_domain_with_recovery_loop(0, lambda: None)

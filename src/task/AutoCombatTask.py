@@ -1,12 +1,11 @@
 import time
 
-from qfluentwidgets import FluentIcon
-
 from ok import TriggerTask, Logger, TaskDisabledException
 from src.char.CharFactory import char_names
 from src.scene.WWScene import WWScene
 from src.task.BaseCombatTask import BaseCombatTask, NotInCombatException, CharDeadException
 from src.util.ControllerTrigger import ControllerTrigger
+from src.task.task_icons import task_icon
 
 logger = Logger.get_logger(__name__)
 
@@ -22,9 +21,9 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
         super().__init__(*args, **kwargs)
         self.default_config = {'_enabled': True}
         self.trigger_interval = 0.1
-        self.name = "Auto Combat"
+        self.name = "⚔️ Auto Combat"
+        self.icon = task_icon('combat')
         self.description = "Enable auto combat in Abyss, Game World etc"
-        self.icon = FluentIcon.CALORIES
         self.last_is_click = False
         self.default_config.update({
             'Auto Target': True,
@@ -135,7 +134,7 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
                     switched_to_healer = True
                 self.get_current_char().perform()
             except CharDeadException:
-                self.log_error(f'Characters dead', notify=True)
+                self.log_error(self.tr('Characters dead'), notify=True)
                 break
             except NotInCombatException as e:
                 logger.info(f'auto_combat_task_out_of_combat {int(time.time() - combat_start)} {e}')

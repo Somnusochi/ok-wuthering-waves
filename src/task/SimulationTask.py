@@ -2,6 +2,7 @@ import re
 
 from ok import Logger
 from src.task.DomainTask import DomainTask
+from src.task.task_icons import task_icon
 
 logger = Logger.get_logger(__name__)
 
@@ -11,6 +12,9 @@ class SimulationTask(DomainTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = '🧪 Simulation Challenge'
+        self.icon = task_icon('simulation')
+        self.group_name = 'Daily Activities'
+        self.group_icon = task_icon('category-daily')
         self.description = 'Farms the selected Simulation Challenge. Must be able to teleport (F2).'
         self.support_schedule_task = True
         self.default_config = {
@@ -28,13 +32,11 @@ class SimulationTask(DomainTask):
         self.make_sure_in_world()
         self.farm_simulation()
 
-    def farm_simulation(self, daily=False, used_stamina=0, config=None, must_use=None, max_claims=None,
-                        allow_double=True):
-        if must_use is None:
-            if daily:
-                must_use = 180 - used_stamina
-            else:
-                must_use = 0
+    def farm_simulation(self, daily=False, used_stamina=0, config=None):
+        if daily:
+            must_use = 180 - used_stamina
+        else:
+            must_use = 0
         if config is None:
             config = self.config
         selection = config.get('Material Selection', 'Shell Credit')
@@ -42,12 +44,7 @@ class SimulationTask(DomainTask):
         def teleport_once():
             self.teleport_into_domain(selection)
 
-        return self.farm_domain_with_recovery_loop(
-            must_use,
-            teleport_once,
-            max_claims=max_claims,
-            allow_double=allow_double,
-        )
+        self.farm_domain_with_recovery_loop(must_use, teleport_once)
 
     def teleport_into_domain(self, selection):
         self.open_boss_book('moni')
