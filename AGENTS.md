@@ -114,7 +114,7 @@ If a tracked local change must be protected before merging and `git stash` fails
 9. Commit changes inside `local_ok_ww\data\apps\ok-ww\repo` and tag/retag the same local version. Make sure the internal repo tag points to the same commit as `.codex\local-source`. Committing separately in each repo yields different SHAs because the committer timestamps differ; instead commit once in `.codex\local-source`, then in the internal repo run `git fetch <abs path to>/.codex/local-source master` followed by `git merge --ff-only FETCH_HEAD`, which reproduces the identical SHA. The `--ff-only` aborts with `Please move or remove them before you merge` for files that are new in the incoming commit but still untracked locally (a prior `git reset` leaves them that way); re-stage with `git add -A`, confirm `git diff --cached FETCH_HEAD --name-only` is empty so the fast-forward provably discards nothing, then merge.
 10. Write `local_ok_ww\data\apps\ok-ww\app.json` as UTF-8 without BOM. Set `current_version`, `app_starting_version`, and `available_versions[0]` to the local tag, and set `current_profile` plus the sole profile name to `Local`.
 11. Run Python syntax compilation with the local packaged Python when no repository `.venv` exists, for example `local_ok_ww\data\apps\ok-ww\python\python.exe`.
-12. Build the launcher shell with `cargo build --release` from `pyappify_build\src-tauri`.
+12. Read `config.py`'s `update_pyappify.to_version` before choosing launcher sources. Build that pyappify release, not an old cached checkout: the current application requires `v1.2.3`, and `v1.1.6` starts the GUI but cannot serve the update API. Preserve existing dirty launcher sources by creating a separate detached worktree at the required tag. Apply only local branding, UAC, and the embedded Local profile; build the frontend (`tsc`, then `vite build`) and run `cargo build --release` from that worktree's `src-tauri`. When sharing the existing target cache, set `CARGO_TARGET_DIR` to `pyappify_build\src-tauri\target`. Do not rebuild from the old checkout afterward. If sharing `node_modules`, do not let pnpm purge the shared directory.
 13. Copy `pyappify_build\src-tauri\target\release\ok-ww.exe` to `local_ok_ww\ok-ww.exe`. Optionally also copy it to the repository root for convenience.
 14. Before verification, close any old `ok-ww.exe` / `pythonw.exe` process that belongs to the previous local launch. A stale backend can hide the real result of the new build. That process is elevated because `pyappify.yml` sets `uac: true` and `admin: true`, so a non-elevated `Stop-Process` or `taskkill /F` fails with `拒绝访问` (Access Denied). It is also the user's live game-automation session, so ask before killing it, then stop it with an elevated `taskkill` and warn that a UAC prompt will appear. Do not rely on the window title to tell versions apart: it reads `OK-WW v0.0.NN Local - OK-WW` only briefly during startup and then collapses to `OK-WW`. Confirm the running version from the log's `PYAPPIFY_APP_VERSION` and `pyappify_executable` lines instead.
 15. Open `local_ok_ww\ok-ww.exe`, not the root exe, for local verification. This raises a second UAC prompt.
@@ -126,6 +126,8 @@ After launch, verify the log under `local_ok_ww\logs\app.YYYY-MM-DD` contains al
 - `ok:OK start`
 - `MainWindow:main window __init__ done`
 - `MainWindow:Window has fully displayed`
+
+Also verify `pyappify_version` matches `config.py`'s required launcher version and the update check has no unsupported-version or automatic launcher-upgrade failure. The Local application tag and launcher version are separate values.
 
 If the log shows `China`, `Global`, or an online version such as `v3.4.x`, stop and fix the local pyappify config before continuing. If the log never reaches `ok:OK start`, the backend did not start. If it reaches `ok:OK start` but not `MainWindow:main window __init__ done`, inspect the Python traceback before changing build files.
 
@@ -155,6 +157,7 @@ Start-Process taskkill.exe -ArgumentList '/F','/PID',$OldPid -Verb RunAs -Wait
 Common failure modes:
 
 - WebView shows `localhost refused`: the pyappify backend did not start. Check `local_ok_ww\logs\app.YYYY-MM-DD` first.
+- `PyAppify does not support checking for updates` or a failed automatic launcher download: check `pyappify_version` against `config.py` before changing application code. Build the required launcher release locally while preserving all four Local profiles; do not weaken upstream's version requirement.
 - `Failed to deserialize app.json`: rewrite `app.json` as UTF-8 without BOM.
 - App silently switches to an online version: one of the local `pyappify.yml` files or the internal repo tag still points at upstream profiles.
 - Runtime loses `pyappify` imports after update: the helper package was missing from the internal repo and got deleted during repo-to-working sync.
