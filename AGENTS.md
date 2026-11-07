@@ -85,6 +85,7 @@ Required local packaging flow:
 - Inspect real `ok-ww.exe` / `pythonw.exe` processes with sufficient read privileges before making any runtime changes. A sandboxed or non-elevated query can hide an elevated process.
 - Copy the runtime and local source repo into a separate directory under `data/`. All dependency installation, source copying, asset removal, and verification steps below apply to that staged copy first, never to a running installation.
 - Set `PYTHONNOUSERSITE=1` during isolated installation and tests. Do not upgrade or uninstall the user's global/Roaming packages. Use the staged interpreter when no project `.venv` exists.
+- Enable `core.longpaths=true` in local packaging repositories before staging or merging files. Nested staging paths can exceed Windows MAX_PATH; preserve upstream template filenames instead of renaming them.
 - Keep the current Local profile's final `git_url` in the staged configuration. Commit the package only once in the staged source, and fetch the same commit into the staged internal repo.
 - Before publishing, check active processes again. If an old session exists, ask before stopping it. If permission is declined, keep the new build staged and leave all live source, dependencies, assets, app.json, and local-source tags unchanged.
 - Once no old session remains, preserve current configs, fast-forward `.codex/local-source` to the staged commit, and publish the validated runtime. Check resolved absolute paths before directory moves. Keep the previous runtime as a rollback copy.
