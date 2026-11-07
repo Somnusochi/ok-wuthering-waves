@@ -20,6 +20,12 @@ Garden, death recovery, normal dropdowns, and translations. Do not restore the
 old daily multi-select UI, claim-count extensions, farming guards, their obsolete
 tests, or PR screenshots. Do not reapply the old ok-script widget/factory patch.
 
+Single-character compatibility must never broaden the upstream team check during
+an active Abyss challenge, a liberation animation, or an already recognized
+normal party. A world/tool icon or a health bar alone is not proof of a story
+combat; require both a locked target and enemy health before accepting the
+missing-party-HUD fallback. Keep normal combat and settlement handling upstream.
+
 ## Syncing upstream
 
 `origin` is the fork, `upstream` is `ok-oldking/ok-wuthering-waves`. When merging `upstream/master` into `master`:
@@ -89,6 +95,7 @@ Required local packaging flow:
 - Keep the current Local profile's final `git_url` in the staged configuration. Commit the package only once in the staged source, and fetch the same commit into the staged internal repo.
 - Before publishing, check active processes again. If an old session exists, ask before stopping it. If permission is declined, keep the new build staged and leave all live source, dependencies, assets, app.json, and local-source tags unchanged.
 - Once no old session remains, preserve current configs, fast-forward `.codex/local-source` to the staged commit, and publish the validated runtime. Check resolved absolute paths before directory moves. Keep the previous runtime as a rollback copy.
+- Source parity alone does not prove upstream character behavior: `configs/custom_teams/*/*.py` and `configs/custom_chars` can override `src/char` at runtime. For this upstream-only character policy, back these up outside the active config tree and switch every active team to the current built-in code using `CustomCharLoader.switch_all_teams_code_mode('builtin')` in the staged runtime. Preserve imported snapshots and normal settings, but verify active character files equal upstream before publishing. Do not enable or import custom code just to verify it. Repeat this check after copying the latest user settings, before launch; never modify an active user's config tree in place.
 - Never repeat the 2026-10-31 failure: replacing resources under a running old process caused GardenTask to request the deleted `assets/images/38.png`.
 
 ### Packaging Steps

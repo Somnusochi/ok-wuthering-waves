@@ -58,24 +58,22 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
             return False
 
     def single_member_team_hud_visible(self):
-        for checker in (
-                lambda: self.find_one('world_earth_icon', threshold=0.55),
-                lambda: self.find_one('edge_levitator', threshold=0.65),
-                self.has_target,
-                self.has_health_bar,
-        ):
-            try:
-                if checker():
-                    return True
-            except Exception as e:
-                logger.debug(f'single_member_team_hud_visible checker failed: {e}')
-        return False
+        try:
+            return bool(self.has_target() and self.has_health_bar())
+        except Exception as e:
+            logger.debug(f'single_member_team_hud_visible failed: {e}')
+            return False
 
     def in_team(self):
         in_team, current_index, count = super().in_team()
         if in_team:
+            self._normal_party_size = count
             return in_team, current_index, count
-        if count == 1 and self.single_member_team_hud_visible():
+        # Missing party labels also occur during normal combat and settlement.
+        if (count == 1 and not getattr(self, '_abyss_combat_active', False)
+                and not getattr(self, '_in_liberation', False)
+                and getattr(self, '_normal_party_size', 0) < 2
+                and self.single_member_team_hud_visible()):
             self.logged_in = True
             return True, 0, 1
         return in_team, current_index, count
@@ -87,6 +85,7 @@ class AutoCombatTask(BaseCombatTask, TriggerTask):
 
     def reset_auto_combat(self, reason):
         self._reset_combat_on_run = False
+        self._normal_party_size = 0
         self.reset_to_false(reason)
         self.chars = [None, None, None]
         self.freeze_durations = []
