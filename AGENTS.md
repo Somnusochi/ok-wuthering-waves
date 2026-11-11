@@ -71,6 +71,7 @@ All four must contain only the Local profile:
 ```yaml
 name: "ok-ww"
 uac: true
+icon: "icons/icon.png"
 profiles:
   - name: "Local"
     git_url: "D:/coding/ok-wuthering-waves/.codex/local-source"
@@ -83,6 +84,13 @@ profiles:
 ```
 
 Do not allow local build config to fall back to upstream profiles such as `China` or `Global`; that makes the app checkout online releases such as `v3.4.x` instead of the local source.
+
+Keep `icon: "icons/icon.png"` in all four Local configurations and set the same
+`icon` field in `app.json`. Preserve the sibling `icons/icon.ico` too. Since
+pyappify 1.2.3 the application shortcut targets `pythonw.exe` directly; without
+the configured app icon it falls back to Python's icon even when `ok-ww.exe`
+has the correct embedded icon. Verify the shortcut's `IconLocation` resolves to
+the project's `.ico`, and preserve its target, arguments and administrator flag.
 
 Required local packaging flow:
 
